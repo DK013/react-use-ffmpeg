@@ -1,3 +1,5 @@
+![NPM Version](https://img.shields.io/npm/v/react-use-ffmpeg)
+
 # react-use-ffmpeg
 
 A React hook for using FFmpeg in the browser with ffmpeg.wasm. This hook provides a simple interface to transcode videos directly in the browser using WebAssembly.
@@ -103,6 +105,12 @@ For local development with files served from your public directory:
 ## License
 
 ISC
+
+## To-Do:
+
+- [ ] Add manual termination support
+- [ ] Add multiple file input option for cases like interpolation
+- [ ] Add Multiple file output option for file splitting
 
 ## Contributing
 
