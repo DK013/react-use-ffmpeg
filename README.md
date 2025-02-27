@@ -1,4 +1,4 @@
-![NPM Version](https://img.shields.io/npm/v/react-use-ffmpeg)
+[![NPM Version](https://img.shields.io/npm/v/react-use-ffmpeg)](https://www.npmjs.com/package/react-use-ffmpeg)
 
 # react-use-ffmpeg
 
