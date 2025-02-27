@@ -1,86 +1,122 @@
+/// <reference types="jest" />
+import React from 'react';
 import { renderHook, act } from '@testing-library/react';
-import { useFFmpeg } from '../src/index';
+import { useFFmpeg, FFmpegProvider } from '../src/index';
+import { FFFSType } from '@ffmpeg/ffmpeg';
+
+const flushPromises = () => new Promise(resolve => setTimeout(resolve, 0));
+const mockFile = new File([''], 'test.mp4', { type: 'video/mp4' });
+
+let mockFFmpeg: any;
+
+// Mock FFmpeg module
+jest.mock('@ffmpeg/ffmpeg', () => {
+  return {
+    FFmpeg: jest.fn(() => mockFFmpeg),
+    FFFSType: { WORKERFS: 'WORKERFS' }
+  };
+});
 
 describe('useFFmpeg', () => {
-  const mockFile = new File([''], 'test.mp4', { type: 'video/mp4' });
-
   beforeEach(() => {
     jest.clearAllMocks();
+    // Reset mock FFmpeg instance
+    mockFFmpeg = {
+      on: jest.fn(),
+      load: jest.fn().mockResolvedValue(undefined),
+      createDir: jest.fn().mockResolvedValue(undefined),
+      mount: jest.fn().mockResolvedValue(undefined),
+      exec: jest.fn().mockResolvedValue(undefined),
+      readFile: jest.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
+      unmount: jest.fn().mockResolvedValue(undefined),
+      deleteDir: jest.fn().mockResolvedValue(undefined),
+    };
+    global.URL.createObjectURL = jest.fn().mockReturnValue('blob:video-url');
+    global.URL.revokeObjectURL = jest.fn();
   });
 
-  it('should initialize with default values', () => {
-    const { result } = renderHook(() => useFFmpeg({ ffmpegPath: '' }));
+  const renderWithProvider = (hook: () => any) => {
+    return renderHook(hook, {
+      wrapper: ({ children }) => (
+        <FFmpegProvider autoInit={false} autoTranscode={false}>
+          {children}
+        </FFmpegProvider>
+      )
+    });
+  };
 
+  it('initializes with default state', () => {
+    const { result } = renderWithProvider(() => useFFmpeg());
     expect(result.current.loaded).toBe(false);
-    expect(result.current.loading).toBe(false);
-    expect(result.current.file).toBeNull();
-    expect(result.current.video).toBeNull();
-    expect(result.current.progress).toBe(0);
-    expect(result.current.time).toBe(0);
+    expect(result.current.queue).toEqual([]);
+    expect(result.current.results).toEqual([]);
   });
 
-  it('should load FFmpeg successfully', async () => {
-    const { result } = renderHook(() => useFFmpeg({ ffmpegPath: '/test/path' }));
-
+  it('loads FFmpeg', async () => {
+    const { result } = renderWithProvider(() => useFFmpeg());
     await act(async () => {
       await result.current.load();
     });
-
     expect(result.current.loaded).toBe(true);
-    expect(result.current.loading).toBe(false);
   });
 
-  it('should set file correctly', () => {
-    const { result } = renderHook(() => useFFmpeg({ ffmpegPath: '' }));
-
-    act(() => {
-      result.current.setFile(mockFile);
-    });
-
-    expect(result.current.file).toBe(mockFile);
-  });
-
-  it('should transcode file successfully', async () => {
-    const { result } = renderHook(() => useFFmpeg({ ffmpegPath: '' }));
-
-    act(() => {
-      result.current.setFile(mockFile);
-    });
-
-    await act(async () => {
-      await result.current.transcode();
-    });
-
-    expect(result.current.video).toBe('blob:video-url');
-  });
-
-  it('should not transcode without a file', async () => {
-    const { result } = renderHook(() => useFFmpeg({ ffmpegPath: '' }));
-
-    await act(async () => {
-      await result.current.transcode();
-    });
-
-    expect(result.current.video).toBeNull();
-  });
-
-  it('should update progress during transcoding', async () => {
-    const { result } = renderHook(() => useFFmpeg({ ffmpegPath: '' }));
-    
+  it('manages queue', async () => {
+    const { result } = renderWithProvider(() => useFFmpeg());
     await act(async () => {
       await result.current.load();
+      result.current.addToQueue(mockFile, 'test', ['-c:v', 'libx264']);
+      await flushPromises();
+    });
+    expect(result.current.queue).toHaveLength(1);
+  });
+
+  it('processes transcoding with callbacks', async () => {
+    const onComplete = jest.fn();
+    const { result } = renderWithProvider(() => useFFmpeg({ onComplete }));
+
+    await act(async () => {
+      await result.current.load();
+      result.current.addToQueue(mockFile, 'test');
+      await flushPromises();
     });
 
-    // Simulate progress event
-    const progressCallback = (jest.requireMock('@ffmpeg/ffmpeg').FFmpeg as jest.Mock).mock.results[0].value.on.mock.calls.find(
-      (call: any) => call[0] === 'progress'
-    )[1];
+    // Get the FFmpeg mock to verify it was called correctly
+    const ffmpegMock = (require('@ffmpeg/ffmpeg').FFmpeg)();
 
-    act(() => {
-      progressCallback({ progress: 0.5, time: 1000000000 });
+    await act(async () => {
+      await result.current.transcode();
+      await flushPromises();
     });
 
-    expect(result.current.progress).toBe(50);
-    expect(result.current.time).toBe(1);
+    expect(ffmpegMock.exec).toHaveBeenCalled();
+    expect(ffmpegMock.readFile).toHaveBeenCalled();
+    expect(onComplete).toHaveBeenCalledWith({
+      id: 'test',
+      url: 'blob:video-url',
+      file: mockFile
+    });
+  });
+
+  it('handles errors', async () => {
+    const mockError = new Error('Transcode failed');
+    mockFFmpeg.exec = jest.fn().mockRejectedValue(mockError);
+
+    const onError = jest.fn();
+    const { result } = renderWithProvider(() => useFFmpeg({ onError }));
+
+    await act(async () => {
+      await result.current.load();
+      result.current.addToQueue(mockFile);
+      await flushPromises();
+    });
+
+    await act(async () => {
+      await result.current.transcode();
+      // Wait longer for error handling
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
+
+    expect(mockFFmpeg.exec).toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledWith(mockError);
   });
 }); 

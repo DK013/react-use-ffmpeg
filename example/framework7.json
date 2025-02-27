@@ -1,0 +1,18 @@
+{
+  "cwd": "D:\\Docs\\Personal\\Projects\\Node.JS\\Projects\\react-use-ffmpeg\\example",
+  "type": [
+    "web"
+  ],
+  "name": "react-ffmpeg-demo",
+  "framework": "react",
+  "template": "blank",
+  "cssPreProcessor": false,
+  "bundler": "vite",
+  "theming": {
+    "customColor": false,
+    "color": "#007aff",
+    "darkMode": false,
+    "iconFonts": false
+  },
+  "customBuild": false
+}

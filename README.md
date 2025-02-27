@@ -9,7 +9,8 @@ A React hook for using FFmpeg in the browser with ffmpeg.wasm. This hook provide
 - 🎥 Browser-based video transcoding
 - 🪝 Simple React hook interface
 - 📊 Progress tracking
-- 🔄 Async operations
+- 🔄 Queue system for multiple files
+- 🏷️ File identification support
 - 📦 TypeScript support
 
 ## Installation
@@ -20,16 +21,74 @@ npm install react-use-ffmpeg
 
 ## Usage
 
+First, wrap your application with the FFmpegProvider:
+
+```tsx
+import { FFmpegProvider } from "react-use-ffmpeg";
+
+function App() {
+  return (
+    <FFmpegProvider autoInit ffmpegPath="optional-custom-path">
+      <YourComponents />
+    </FFmpegProvider>
+  );
+}
+```
+
+Then use the hook in your components:
+
 ```tsx
 import { useFFmpeg } from "react-use-ffmpeg";
 
-const { load, file, progress, time, transcode, setArgs, video } = useFFmpeg();
+function VideoProcessor() {
+  const { 
+    loaded, 
+    loading, 
+    addToQueue, 
+    queue, 
+    progress, 
+    results,
+    transcoding 
+  } = useFFmpeg({
+    onComplete: (result) => {
+      console.log(`File ${result.id} completed:`, result.url);
+    }
+  });
 
+  const handleFileChange = (e) => {
+    if (e.target.files?.[0]) {
+      // Add file to queue with an ID and FFmpeg arguments
+      addToQueue(
+        e.target.files[0],
+        e.target.files[0].name,
+        ['-c:v', 'libx264']
+      );
+    }
+  };
+
+  return (
+    <div>
+      <input type="file" onChange={handleFileChange} />
+      {transcoding && <div>Progress: {progress}%</div>}
+      {results.map(result => (
+        <video key={result.id} src={result.url} controls />
+      ))}
+    </div>
+  );
+}
 ```
 
 ## API Reference
 
-### useFFmpeg()
+### FFmpegProvider Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| autoInit | boolean | false | Automatically initialize FFmpeg when mounted |
+| ffmpegPath | string | undefined | Custom path to FFmpeg files |
+| children | ReactNode | - | Child components |
+
+### useFFmpeg Hook
 
 Returns an object with the following properties and methods:
 
@@ -37,26 +96,43 @@ Returns an object with the following properties and methods:
 
 - `loaded` (boolean): Indicates if FFmpeg is loaded and ready
 - `loading` (boolean): Indicates if FFmpeg is currently loading
-- `transcoding` (boolean): Indicates if transcoding is currently in progress
-- `file` (File | null): Current input file
-- `video` (string | null): URL of the transcoded video
+- `transcoding` (boolean): Indicates if transcoding is in progress
+- `queue` (QueueItem[]): Current queue of files to process
+- `currentItem` (QueueItem | null): Currently processing item
+- `results` (TranscodeResult[]): Array of processed files
 - `progress` (number): Transcoding progress (0-100)
 - `time` (number): Processing time in seconds
 
 #### Methods
 
-- `load(): Promise<void>`: Loads FFmpeg WASM
-- `setFile(file: File): void`: Sets the input video file
-- `setArgs(args: string[]): void`: Sets FFmpeg command arguments
-- `transcode(): Promise<void>`: Starts the transcoding process
+- `load(): Promise<void>`: Loads FFmpeg WASM (if not using autoInit)
+- `addToQueue(file: File, id?: string, args?: string[]): void`: Adds a file to the processing queue
+- `clearQueue(): void`: Clears the processing queue
+- `transcode(): Promise<void>`: Processes the current item (mainly for backward compatibility)
+
+#### Types
+
+```typescript
+interface QueueItem {
+  file: File;
+  id?: string;
+  args: string[];
+}
+
+interface TranscodeResult {
+  id?: string;
+  url: string;
+  file: File;
+}
+
+interface UseFFmpegOptions {
+  onComplete?: (result: TranscodeResult) => void;
+}
+```
 
 ## Environment Setup
 
-FFmpeg files are fetched from unpkg CDN by default. You can override this behavior by passing `ffmpegPath` prop to the hook:
-
-```tsx
-const { load } = useFFmpeg('https://yourdomain.com/custom/path/to/ffmpeg');
-```
+FFmpeg files are fetched from unpkg CDN by default. You can override this by providing a custom path to the FFmpegProvider.
 
 ### Vite Configuration
 
@@ -83,7 +159,7 @@ For local development with files served from your public directory:
 
 1. Download FFmpeg files from [@ffmpeg/core-mt](https://www.npmjs.com/package/@ffmpeg/core-mt)
 2. Place them in `public/ffmpeg/`
-3. Set the path accordingly
+3. Set the path in FFmpegProvider
 4. Files needed:
    - ffmpeg-core.js
    - ffmpeg-core.wasm
@@ -91,9 +167,10 @@ For local development with files served from your public directory:
 
 ## Notes
 
-- This hook uses FFmpeg.wasm which runs entirely in the browser
-- Large files may take significant time to process but it's extremely fast when using `["-codec", "copy"]` arguments to simply change the video format
-- Supported in modern browsers with WebAssembly support
+- Files are processed one at a time in the order they were added
+- Each file can have its own FFmpeg arguments
+- The `onComplete` callback is triggered after each file is processed
+- URLs in results should be cleaned up when no longer needed
 - Memory usage depends on video size and processing options
 
 ## Browser Support
@@ -106,10 +183,10 @@ For local development with files served from your public directory:
 
 ISC
 
-## To-Do:
+## To-Do
 
+- [x] Add multiple file input option for cases like interpolation
 - [ ] Add manual termination support
-- [ ] Add multiple file input option for cases like interpolation
 - [ ] Add Multiple file output option for file splitting
 
 ## Contributing
