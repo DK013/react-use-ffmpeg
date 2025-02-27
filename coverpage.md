@@ -1,6 +1,6 @@
 ![logo](media/icon.png)
 
-# react-use-ffmpeg <small>2.0.0</small>
+# react-use-ffmpeg <small>2.0.1</small>
 
 > A React hook for using FFmpeg in your project.
 
