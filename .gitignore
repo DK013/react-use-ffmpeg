@@ -1,0 +1,11 @@
+#build
+dist/
+
+# Development
+node_modules/
+.vscode/
+.idea/
+*.log
+
+# Misc
+.DS_Store 
