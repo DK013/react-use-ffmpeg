@@ -59,6 +59,8 @@ function VideoProcessor() {
 }
 ```
 
+check the [example folder](https://github.com/dk013/react-use-ffmpeg/tree/main/example) for a complete working example.
+
 ## Documentation
 
 For detailed documentation, API reference, and advanced usage examples, please visit:
