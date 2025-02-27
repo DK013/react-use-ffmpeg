@@ -64,7 +64,7 @@ check the [example folder](https://github.com/dk013/react-use-ffmpeg/tree/main/e
 ## Documentation
 
 For detailed documentation, API reference, and advanced usage examples, please visit:
-[https://dk013.github.io/use-react-ffmpeg](https://dk013.github.io/use-react-ffmpeg)
+[https://dk013.github.io/react-use-ffmpeg](https://dk013.github.io/react-use-ffmpeg)
 
 ## License
 
