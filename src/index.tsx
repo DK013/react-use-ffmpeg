@@ -107,10 +107,10 @@ export const FFmpegProvider = ({
 				if (!nextItem) return;
 				
 				setQueue((prev) => prev.slice(1));
+				const inputDir = "/input";
 
 				try {
 					setTranscoding(true);
-					const inputDir = "/input";
 					const inputFile = `${inputDir}/${nextItem.file.name}`;
 
 					await ffmpegRef.current.createDir(inputDir);
@@ -136,13 +136,18 @@ export const FFmpegProvider = ({
 
 					setResults((prev) => [...prev, result]);
 					callbacks?.onComplete?.(result);
-
-					await ffmpegRef.current.unmount(inputDir);
-					await ffmpegRef.current.deleteDir(inputDir);
 				} catch (error) {
 					console.error("Transcoding error:", error);
 					callbacks?.onError?.(error as Error);
+					throw error; // Re-throw the error after handling
 				} finally {
+					// Ensure cleanup happens regardless of success or failure
+					try {
+						await ffmpegRef.current.unmount(inputDir);
+						await ffmpegRef.current.deleteDir(inputDir);
+					} catch (cleanupError) {
+						console.error("Cleanup error:", cleanupError);
+					}
 					setTranscoding(false);
 				}
 			}
