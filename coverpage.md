@@ -1,4 +1,4 @@
-![logo](_media/icon.png)
+![logo](media/icon.png)
 
 # react-use-ffmpeg <small>2.0.0</small>
 
