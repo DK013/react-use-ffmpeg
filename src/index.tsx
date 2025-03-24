@@ -16,9 +16,10 @@ interface FFmpegContextType {
 	loaded: boolean;
 	loading: boolean;
 	load: () => Promise<void>;
+	unload: () => Promise<void>;
 	autoTranscode?: boolean;
 	transcode: (item?: QueueItem, callbacks?: { 
-		onComplete?: (result: TranscodeResult) => void,
+		onComplete?: (result: TranscodeResult, currentQueue?: QueueItem[]) => void,
 		onError?: (error: Error) => void 
 	}) => Promise<void>;
 }
@@ -63,7 +64,8 @@ export const FFmpegProvider = ({
 				setLoading(true);
 				try {
 					const baseURL =
-						ffmpegPath || "https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm";
+						ffmpegPath ||
+						"https://cdn.jsdelivr.net/npm/@ffmpeg/core-mt@0.12.9/dist/esm";
 					const ffmpeg = ffmpegRef.current;
 
 					ffmpeg.on("log", ({ message }: { message: string }) => {
@@ -92,6 +94,28 @@ export const FFmpegProvider = ({
 					setLoading(false);
 				}
 			},
+			unload: async () => {
+				if (!loaded || loading) return; // Only unload if currently loaded
+				
+				try {
+					// Terminate the FFmpeg instance
+					await ffmpegRef.current.terminate();
+					
+					// Reset state
+					setLoaded(false);
+					setQueue([]);
+					setProgress(0);
+					setResults([]);
+					
+					// Create a new FFmpeg instance for future use
+					ffmpegRef.current = new FFmpeg();
+					
+					console.log("FFmpeg unloaded successfully");
+				} catch (error) {
+					console.error("Failed to unload FFmpeg:", error);
+					throw error;
+				}
+			},
 			addToQueue: async (file: File, id?: string, args: string[] = []) => {
 				setQueue((prev) => [...prev, { file, id, args }]);
 			},
@@ -100,13 +124,20 @@ export const FFmpegProvider = ({
 			},
 			time: 0,
 			transcode: async (item?: QueueItem, callbacks?: { 
-				onComplete?: (result: TranscodeResult) => void,
+				onComplete?: (result: TranscodeResult, currentQueue?: QueueItem[]) => void,
 				onError?: (error: Error) => void 
 			}) => {
+				// If no item is provided, use the first item from the queue
 				const nextItem = item || queue[0];
 				if (!nextItem) return;
 				
-				setQueue((prev) => prev.slice(1));
+				// If we're using an item from the queue, remove it
+				let updatedQueue = [...queue]; // Create a copy of the current queue
+				if (!item && queue.length > 0) {
+					updatedQueue = updatedQueue.slice(1);
+					setQueue(updatedQueue);
+				}
+				
 				const inputDir = "/input";
 
 				try {
@@ -135,7 +166,8 @@ export const FFmpegProvider = ({
 					};
 
 					setResults((prev) => [...prev, result]);
-					callbacks?.onComplete?.(result);
+					// Always pass the updated queue to the callback
+					callbacks?.onComplete?.(result, updatedQueue);
 				} catch (error) {
 					console.error("Transcoding error:", error);
 					callbacks?.onError?.(error as Error);
@@ -185,6 +217,7 @@ interface UseFFmpegReturn {
 	loaded: boolean;
 	loading: boolean;
 	load: () => Promise<void>;
+	unload: () => Promise<void>;
 	addToQueue: (file: File, id?: string, args?: string[]) => void;
 	clearQueue: () => void;
 	queue: QueueItem[];
@@ -214,7 +247,7 @@ export const useFFmpeg = (options?: {
 	const [results, setResults] = useState<TranscodeResult[]>([]);
 	const [transcoding, setTranscoding] = useState<boolean>(false);
 
-	const { ffmpeg, loaded, loading, load, autoTranscode } = context;
+	const { ffmpeg, loaded, loading, load, unload, autoTranscode } = context;
 
 	// Set up progress listener
 	useEffect(() => {
@@ -247,6 +280,7 @@ export const useFFmpeg = (options?: {
 
 			const nextItem = queue[0];
 			setCurrentItem(nextItem);
+			// Remove item from queue immediately to prevent double processing
 			setQueue((prev) => prev.slice(1));
 
 			try {
@@ -305,7 +339,12 @@ export const useFFmpeg = (options?: {
 	// Keep transcode method for backward compatibility
 	const transcode = async (): Promise<void> => {
 		if (queue.length === 0) return;
-		await context.transcode(queue[0], {
+		// Get the first item but don't modify the queue yet
+		const item = queue[0];
+		// Remove the item from the queue immediately
+		setQueue((prev) => prev.slice(1));
+		
+		await context.transcode(item, {
 			onComplete: options?.onComplete,
 			onError: options?.onError
 		});
@@ -315,6 +354,7 @@ export const useFFmpeg = (options?: {
 		loaded,
 		loading,
 		load,
+		unload,
 		addToQueue,
 		clearQueue,
 		queue,

@@ -26,7 +26,7 @@ const MyApp = () => {
 
 	return (
 		<App {...f7params}>
-			<FFmpegProvider>
+			<FFmpegProvider autoInit={false}>
 				<View main className="safe-areas" url="/" />
 			</FFmpegProvider>
 		</App>

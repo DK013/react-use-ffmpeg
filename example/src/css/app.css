@@ -1,3 +1,8 @@
 /* @import "tailwindcss"; */
 
 /* Your app custom styles here */
+video {
+    width: 345px;
+    display: inline-block;
+    margin: 0 10px;
+}

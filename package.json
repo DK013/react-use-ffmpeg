@@ -1,6 +1,6 @@
 {
 	"name": "react-use-ffmpeg",
-	"version": "2.0.1",
+	"version": "2.0.2",
 	"description": "A react hook to use ffmpeg in the browser using ffmpeg.wasm",
 	"main": "dist/index.js",
 	"module": "dist/index.js",
@@ -10,6 +10,7 @@
 	],
 	"scripts": {
 		"build": "tsc",
+		"watch": "tsc --watch",
 		"prepare": "npm run build",
 		"prepublishOnly": "npm run build",
 		"test": "jest",
