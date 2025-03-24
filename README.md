@@ -306,6 +306,32 @@ For local development with files served from your public directory:
    - ffmpeg-core.wasm
    - ffmpeg-core.worker.js
 
+## Memory Optimization
+
+The `unload` method is used to unload the FFmpeg instance when no files are left in the queue. This helps reduce memory usage by allowing the instance to be garbage collected when it's no longer needed.
+
+You can use the `load` method to load the FFmpeg instance when you need to process a new file and once completed you can use the `unload` method to unload the instance.
+
+```tsx
+const { load, unload, loaded, loading, addToQueue, queue, progress, time, results, transcoding } = useFFmpeg({
+  onComplete: (result) => {
+   const updatedQueue = queue.filter((item) => item.id !== result.id);
+   if (updatedQueue.length === 0 && !transcoding) {
+    // Unload FFmpeg when no files are left in the queue
+    unload();
+   }
+  },
+ });
+
+// Load FFmpeg when needed
+load().then(() => {
+  // Process files
+  addToQueue(file, file.name, ["-codec", "copy"]);
+});
+
+```
+
+
 ## Notes
 
 - Files are processed one at a time in the order they were added
